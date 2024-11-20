@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>选择编辑器</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .welcome {
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        .create-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .editor-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .editor-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .editor-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .editor-name {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .editor-info {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .modal .cancel {
+            background: #f44336;
+            color: white;
+        }
+
+        .modal .confirm {
+            background: #4CAF50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="welcome">欢迎, <span id="userName"></span></div>
+            <button class="create-btn" onclick="showCreateModal()">新建编辑器</button>
+        </div>
+        <div class="editor-list" id="editorList">
+            <!-- 编辑器列表将通过 JavaScript 动态生成 -->
+        </div>
+    </div>
+
+    <!-- 创建编辑器的模态框 -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <h3>创建新的编辑器</h3>
+            <input type="text" id="editorName" placeholder="编辑器名称">
+            <div class="modal-buttons">
+                <button class="cancel" onclick="hideCreateModal()">取消</button>
+                <button class="confirm" onclick="createEditor()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // 获取用户名
+        const userName = localStorage.getItem('userName')
+        if (!userName) {
+            window.location.href = '/edit' // 如果没有用户名，返回登录页
+        }
+        document.getElementById('userName').textContent = userName
+
+        // 从服务器获取编辑器列表
+        async function fetchEditors() {
+            try {
+                const response = await fetch('/api/editors')
+                const editors = await response.json()
+                displayEditors(editors)
+            } catch (error) {
+                console.error('获取编辑器列表失败:', error)
+            }
+        }
+
+        // 显示编辑器列表
+        function displayEditors(editors) {
+            const listElement = document.getElementById('editorList')
+            listElement.innerHTML = editors.map(editor => `
+                <div class="editor-card" onclick="openEditor('${editor.id}')">
+                    <div class="editor-name">${editor.name}</div>
+                    <div class="editor-info">
+                        创建时间: ${new Date(editor.createdAt).toLocaleString()}
+                        <br>
+                        当前在线: ${editor.activeUsers || 0} 人
+                    </div>
+                </div>
+            `).join('')
+        }
+
+        // 打开编辑器
+        window.openEditor = function(editorId) {
+            window.location.href = `/edit/${editorId}`
+        }
+
+        // 显示创建模态框
+        window.showCreateModal = function() {
+            document.getElementById('createModal').style.display = 'block'
+        }
+
+        // 隐藏创建模态框
+        window.hideCreateModal = function() {
+            document.getElementById('createModal').style.display = 'none'
+        }
+
+        // 创建新编辑器
+        window.createEditor = async function() {
+            const name = document.getElementById('editorName').value.trim()
+            if (!name) {
+                alert('请输入编辑器名称')
+                return
+            }
+
+            try {
+                const response = await fetch('/api/editors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name })
+                })
+
+                if (response.ok) {
+                    const editor = await response.json()
+                    hideCreateModal()
+                    window.location.href = `/edit/${editor.id}`
+                } else {
+                    alert('创建编辑器失败')
+                }
+            } catch (error) {
+                console.error('创建编辑器失败:', error)
+                alert('创建编辑器失败')
+            }
+        }
+
+        // 初始加载编辑器列表
+        fetchEditors()
+
+        // 定期刷新编辑器列表
+        setInterval(fetchEditors, 10000)
+    </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+import { WebSocketServer } from 'ws'
+
+const wss = new WebSocketServer({ 
+    port: 1234,
+    host: '0.0.0.0'
+})
+
+// 添加服务器状态监控
+setInterval(() => {
+    console.log(`当前连接数: ${wss.clients.size}`)
+}, 3000)
+
+// 添加错误处理
+wss.on('error', (error) => {
+    console.error('WebSocket 服务器错误:', error)
+})
+
+wss.on('listening', () => {
+    console.log('WebSocket 服务器启动成功，监听端口 1234')
+})
+
+wss.on('connection', (ws, req) => {
+    console.log(`新客户端连接 - IP: ${req.socket.remoteAddress}`)
+
+    // 连接建立时发送欢迎消息
+    ws.send(JSON.stringify({
+        type: 'system',
+        message: 'Connected to server'
+    }))
+
+    ws.on('message', (message) => {
+        try {
+            console.log('收到消息:', message.toString())
+            // 广播消息给其他客户端
+            wss.clients.forEach(client => {
+                if (client !== ws && client.readyState === ws.OPEN) {
+                    client.send(message)
+                }
+            })
+        } catch (error) {
+            console.error('处理消息时出错:', error)
+        }
+    })
+
+    ws.on('error', (error) => {
+        console.error('客户端连接错误:', error)
+    })
+
+    ws.on('close', () => {
+        console.log('客户端断开连接')
+    })
+})
+
+process.on('SIGTERM', () => {
+    console.log('服务器正在关闭...')
+    wss.close(() => {
+        console.log('服务器已关闭')
+        process.exit(0)
+    })
+})
+
+console.log('WebSocket 服务器正在启动...')
